@@ -1,6 +1,32 @@
 #include "Memory/Memory.hpp"
 
 #include <sys/mman.h>
+#include <fcntl.h>
+#include <assert.h>
+
+// Extract the physical page number from a Linux /proc/PID/pagemap entry.
+uint64_t Memory::frame_number_from_pagemap(uint64_t value) {
+  return value & ((1ULL << 54) - 1);
+}
+
+uint64_t Memory::get_physical_addr(uintptr_t virtual_addr) {
+  int fd = open("/proc/self/pagemap", O_RDONLY);
+  assert(fd >= 0);
+
+  off_t pos = lseek(fd, (virtual_addr / 0x1000) * 8, SEEK_SET);
+  assert(pos >= 0);
+  uint64_t value;
+  int got = read(fd, &value, 8);
+  assert(got == 8);
+  int rc = close(fd);
+  assert(rc == 0);
+
+  // Check the "page present" flag.
+  assert(value & (1ULL << 63));
+
+  uint64_t frame_num = frame_number_from_pagemap(value);
+  return (frame_num * 0x1000) | (virtual_addr & (0x1000 - 1));
+}
 
 /// Allocates a MEM_SIZE bytes of memory by using super or huge pages.
 void Memory::allocate_memory(size_t mem_size) {
@@ -168,7 +194,8 @@ size_t Memory::check_memory_internal(PatternAddressMapper &mapping,
           const auto flipped_addr_value = *(unsigned char *) flipped_address;
           const auto expected_value = ((unsigned char *) &expected_rand_value)[c];
           if (verbose) {
-            Logger::log_bitflip(flipped_address, flipped_addr_dram.row,
+            Logger::log_bitflip(flipped_address, get_physical_addr((uintptr_t) flipped_address),
+                flipped_addr_dram.row,
                 expected_value, flipped_addr_value, (size_t) time(nullptr), true);
           }
           // store detailed information about the bit flip

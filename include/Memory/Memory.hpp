@@ -55,6 +55,10 @@ class Memory {
   [[nodiscard]] volatile char *get_starting_address() const;
 
   std::string get_flipped_rows_text_repr();
+
+  uint64_t frame_number_from_pagemap(uint64_t value);
+
+  uint64_t get_physical_addr(uintptr_t virtual_addr);
 };
 
 #endif //BLACKSMITH_SRC_MEMORY_H_
