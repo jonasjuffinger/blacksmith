@@ -41,7 +41,7 @@ int check_cpu() {
       "i7-8086",
       "i7-8700",
       "i7-9700",
-      "i7-9900"
+      "i9-9900"
   };
 
   bool cpu_supported = false;
